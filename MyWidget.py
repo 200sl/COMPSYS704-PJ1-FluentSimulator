@@ -1,17 +1,12 @@
 # coding:utf-8
-import sys
 
-from PyQt6.QtCore import Qt, QEasingCurve
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
-from qfluentwidgets import (NavigationItemPosition, MessageBox, setTheme, Theme, FluentWindow,
-                            NavigationAvatarWidget, qrouter, SubtitleLabel, setFont, InfoBadge, IconWidget,
-                            InfoBadgePosition, FluentBackgroundTheme, SwitchButton, FlowLayout, Icon)
-from qfluentwidgets import FluentIcon as FIF
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
+from qfluentwidgets import (SubtitleLabel, setFont, IconWidget,
+                            SwitchButton)
 
 from MyIcon import MyFluentIcon as MIF
-
-from SysjSignal import OutputSignal, InputSignal, OutputSignalManager, InputSignalManager
+from SysjSignal import InputSignal
 
 
 class LabelSwitchButton(QWidget):

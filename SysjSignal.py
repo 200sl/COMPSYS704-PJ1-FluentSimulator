@@ -1,10 +1,10 @@
-import queue
-import threading
-import socket
-import selectors
-import time
 import json
-from PySide6.QtCore import QThread, QObject, Signal
+import queue
+import selectors
+import socket
+import time
+
+from PySide6.QtCore import QThread, Signal
 
 
 class SocketBaseInfo:
