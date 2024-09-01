@@ -8,5 +8,5 @@
 ## 2. Installation
 ```bash
 pip install PySide6
-pip install PyQt-Fluent-Widgets
+pip install PySide6-Fluent-Widgets
 ```
