@@ -1,7 +1,7 @@
 # coding:utf-8
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
 from qfluentwidgets import (SubtitleLabel, setFont, IconWidget,
                             SwitchButton)
 

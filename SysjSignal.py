@@ -22,7 +22,7 @@ class SocketBaseInfo:
 
 
 class SignalMessageDto:
-    def __init__(self, name: str, cd: str, status: bool, value: None | str = None):
+    def __init__(self, name: str, cd: str, status: bool, value=None):
         self.name = name
         self.cd = cd
         self.status = status
@@ -62,7 +62,7 @@ class SignalBase:
 
 
 class OutputSignal(SignalBase):
-    def __init__(self, name, cd, port, ip="127.0.0.1"):
+    def __init__(self, name, cd, port, ip="localhost"):
         super().__init__(name, cd)
 
         self.socketInfo = SocketBaseInfo(ip, port)
@@ -102,6 +102,9 @@ def createClientSocket(ip, port):
         sock.close()
         return None
     except socket.error as e:
+        if e.errno == 61:
+            return None
+
         print(f"{ip}:{port}, Connection Error: {e}")
         sock.close()
         return None
