@@ -1,20 +1,24 @@
 # coding:utf-8
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
+from PySide6.QtCore import Slot
+from PySide6.QtGui import Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel
 from qfluentwidgets import (SubtitleLabel, setFont, IconWidget,
-                            SwitchButton)
+                            SwitchButton, PushButton)
 
 from MyIcon import MyFluentIcon as MIF
-from SysjSignal import InputSignal
+from SysjSignal import InputSignal, SignalBase
 
 
 class LabelSwitchButton(QWidget):
-    def __init__(self, outputSignal):
+    def __init__(self, outputSignal, handle=None, data=None):
         super().__init__()
 
+        self.handle = handle
+        self.data = data
+
         self.label = QLabel(outputSignal.name)
-        self.switchButton = SwitchButton()
+        self.switchButton = SwitchButton() if not outputSignal.isOneShot else PushButton(text='Send')
 
         self.layout = QHBoxLayout(self)
         self.layout.addWidget(self.label)
@@ -22,7 +26,17 @@ class LabelSwitchButton(QWidget):
 
         self.outputSignal = outputSignal
 
-        self.switchButton.checkedChanged.connect(lambda checked: outputSignal.changeStatus(checked))
+        if isinstance(self.switchButton, SwitchButton):
+            self.outputSignal.emitter.sigStatusChanged.connect(self.switchButton.setChecked)
+            self.switchButton.checkedChanged.connect(lambda checked: self.handleSignal(checked))
+        elif isinstance(self.switchButton, PushButton):
+            self.switchButton.clicked.connect(lambda: self.handleSignal(True))
+
+    def handleSignal(self, status):
+        if self.handle is not None:
+            self.handle(self.data)
+
+        self.outputSignal.changeStatus(status)
 
 
 class LabelStatusLight(QWidget):
@@ -54,9 +68,13 @@ class CdCard(QHBoxLayout):
         self.addLayout(self.vStatusLightsBoxLayout)
         self.addLayout(self.vOutputSignalsBoxLayout)
 
-    def addOutputSignals(self, signals):
-        for signal in signals:
-            self.vOutputSignalsBoxLayout.addWidget(LabelSwitchButton(signal))
+    def addOutputSignals(self, signals, simulatorEvent=None):
+        for i in range(len(signals)):
+            if simulatorEvent is not None and simulatorEvent[i] is not None:
+                self.vOutputSignalsBoxLayout.addWidget(
+                    LabelSwitchButton(signals[i], handle=simulatorEvent[i][0], data=simulatorEvent[i][1]))
+            else:
+                self.vOutputSignalsBoxLayout.addWidget(LabelSwitchButton(signals[i]))
 
     def addStatusLights(self, signals):
         statusLights = []
@@ -84,4 +102,3 @@ class Widget(QFrame):
     def addCdCard(self, cdCard: CdCard):
         self.vBoxLayout.addLayout(cdCard)
         self.vBoxLayout.addSpacing(100)
-

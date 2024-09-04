@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtGui import QIcon
+from PySide6.QtGui import QIcon
 
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentWindow, NavigationItemPosition
@@ -25,7 +25,7 @@ def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal]
     oSig.append(OutputSignal(f"dosUnit{fillerIdx}Evac", f"Filler{fillerIdx}ControllerCD", oPort))
     oSig.append(OutputSignal(f"dosUnit{fillerIdx}AtTarget", f"Filler{fillerIdx}ControllerCD", oPort))
     oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}Full", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}ControllerCD", oPort))
+    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}ControllerCD", oPort, oneShot=True))
 
     return oSig, iSig
 
@@ -93,9 +93,9 @@ class Window(FluentWindow):
         # self.navigationInterface.setMinimumExpandWidth(900)
         # self.navigationInterface.expand(useAni=False)
 
-    def createCdCardByIOSignal(self, iSig: list[InputSignal], oSig: list[OutputSignal]):
+    def createCdCardByIOSignal(self, iSig: list[InputSignal], oSig: list[OutputSignal], simulatorEvent=None):
         cdCard = CdCard()
-        cdCard.addOutputSignals(oSig)
+        cdCard.addOutputSignals(oSig, simulatorEvent=simulatorEvent)
         lights = cdCard.addStatusLights(iSig)
 
         for signal in oSig:
@@ -112,7 +112,7 @@ class Window(FluentWindow):
             OutputSignal("tableAlignedWithSensor", "RotaryTableControllerCD", 40001),
             OutputSignal("bottleAtPos5", "RotaryTableControllerCD", 40001),
             OutputSignal("capOnBottleAtPos1", "RotaryTableControllerCD", 40001),
-            OutputSignal("move2NextPos", "RotaryTableControllerCD", 40001),
+            OutputSignal("move2NextPos", "RotaryTableControllerCD", 40001, oneShot=True),
         ]
 
         iSigRotary: list[InputSignal] = [
@@ -120,7 +120,17 @@ class Window(FluentWindow):
             InputSignal("rotaryIdle", "Coordinator", 41001),
         ]
 
-        rotaryCdCard = self.createCdCardByIOSignal(iSigRotary, oSigRotary)
+        def move2NextSimulator(signal: OutputSignal):
+            signal.changeStatus(False)
+
+        simulatorEvent: list = [
+            None,
+            None,
+            None,
+            (move2NextSimulator, oSigRotary[0])
+        ]
+
+        rotaryCdCard = self.createCdCardByIOSignal(iSigRotary, oSigRotary, simulatorEvent=simulatorEvent)
         self.rotaryAndConveyorInterface.addCdCard(rotaryCdCard)
 
         oSigConveyor: list[OutputSignal] = [
@@ -159,7 +169,7 @@ class Window(FluentWindow):
             OutputSignal("gripperZAxisLifted", "CapperControllerCD", 40006),
             OutputSignal("gripperTurnHomePos", "CapperControllerCD", 40006),
             OutputSignal("gripperTurnFinalPos", "CapperControllerCD", 40006),
-            OutputSignal("capperDoProcess", "CapperControllerCD", 40006),
+            OutputSignal("capperDoProcess", "CapperControllerCD", 40006, oneShot=True),
         ]
 
         iSigCapper: list[InputSignal] = [
@@ -179,7 +189,8 @@ class Window(FluentWindow):
         self.initFillerABCDInterfaces()
         self.initCappeerInterface()
 
-    def updateStatusLight(self, sb):
+    @Slot(SignalBase)
+    def updateStatusLight(self, sb: SignalBase):
         for light in self.globalStatusLights:
             if light.label.text() == sb.name:
                 light.setStatus(sb.status)

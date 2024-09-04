@@ -4,7 +4,14 @@ import selectors
 import socket
 import time
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, QObject
+
+
+class MyEmitter(QObject):
+    sigStatusChanged = Signal(bool)
+
+    def __init__(self):
+        super().__init__()
 
 
 class SocketBaseInfo:
@@ -47,6 +54,7 @@ class SignalMessageDto:
 
 class SignalBase:
     def __init__(self, name, cd, status=False):
+        super().__init__()
         self.name = name
         self.cd = cd
         self.status = status
@@ -62,15 +70,20 @@ class SignalBase:
 
 
 class OutputSignal(SignalBase):
-    def __init__(self, name, cd, port, ip="127.0.0.1"):
+
+    def __init__(self, name, cd, port, ip="127.0.0.1", oneShot=False):
         super().__init__(name, cd)
 
         self.socketInfo = SocketBaseInfo(ip, port)
         self.socket = None
+        self.isOneShot = oneShot
+
+        self.emitter = MyEmitter()
 
     def changeStatus(self, status: bool):
         self.status = status
         self.signalDto.status = status
+        self.emitter.sigStatusChanged.emit(status)
 
     def setSocket(self, so):
         self.socket = so
@@ -81,6 +94,11 @@ class OutputSignal(SignalBase):
     def sendSignal(self):
         if self.isSocketAvailable():
             self.socket.send(self.signalDto.toJson().encode())
+
+            if self.isOneShot:
+                self.status = False
+                self.signalDto.status = False
+
         else:
             # print(f"{self.name} is not connected to the server")
             pass
@@ -186,14 +204,12 @@ class InputSignalManager(QThread):
         if not data:
             print(f"Connection closed")
         else:
-            print(f"Received: {data}")
-
             dataStr = data.decode()
 
             for oneStr in dataStr.split("\r\n"):
                 try:
                     jsDict = json.loads(oneStr)
-                    sig = SignalBase(jsDict["name"], jsDict["cd"], jsDict["status"])
+                    sig = SignalBase(jsDict["name"], jsDict["cd"], status=jsDict["status"])
                     inputSigMngr.recvSignal.emit(sig)
 
                 except json.JSONDecodeError:
