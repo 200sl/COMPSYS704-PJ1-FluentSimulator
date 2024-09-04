@@ -29,7 +29,7 @@ class SocketBaseInfo:
 
 
 class SignalMessageDto:
-    def __init__(self, name: str, cd: str, status: bool, value: None | str = None):
+    def __init__(self, name: str, cd: str, status: bool, value=None):
         self.name = name
         self.cd = cd
         self.status = status
@@ -54,7 +54,6 @@ class SignalMessageDto:
 
 class SignalBase:
     def __init__(self, name, cd, status=False):
-        super().__init__()
         self.name = name
         self.cd = cd
         self.status = status
@@ -120,6 +119,9 @@ def createClientSocket(ip, port):
         sock.close()
         return None
     except socket.error as e:
+        if e.errno == 61:
+            return None
+
         print(f"{ip}:{port}, Connection Error: {e}")
         sock.close()
         return None
@@ -204,12 +206,14 @@ class InputSignalManager(QThread):
         if not data:
             print(f"Connection closed")
         else:
+            print(f"Received: {data}")
+
             dataStr = data.decode()
 
             for oneStr in dataStr.split("\r\n"):
                 try:
                     jsDict = json.loads(oneStr)
-                    sig = SignalBase(jsDict["name"], jsDict["cd"], status=jsDict["status"])
+                    sig = SignalBase(jsDict["name"], jsDict["cd"], jsDict["status"])
                     inputSigMngr.recvSignal.emit(sig)
 
                 except json.JSONDecodeError:
