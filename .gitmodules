@@ -1,0 +1,4 @@
+[submodule "3rd/sysj_template"]
+	path = 3rd/sysj_template
+	url = https://github.com/ClemonHao/sysj_template.git
+    branch = develop_project1 
