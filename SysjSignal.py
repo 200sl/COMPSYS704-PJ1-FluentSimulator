@@ -99,8 +99,11 @@ class OutputSignal(SignalBase):
             self.socket.send(self.signalDto.toJson().encode())
 
             if self.isOneShot:
+                time.sleep(0.2)
                 self.status = False
                 self.signalDto.status = False
+                self.signalDto.value = None
+                self.socket.send(self.signalDto.toJson().encode())
 
         else:
             # print(f"{self.name} is not connected to the server")
