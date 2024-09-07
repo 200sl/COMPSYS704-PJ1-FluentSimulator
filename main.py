@@ -1,14 +1,15 @@
+import json
 import sys
 
 from PySide6.QtGui import QIcon
-
+from PySide6.QtCore import Slot, Signal
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentWindow, NavigationItemPosition
 
 from qfluentwidgets import FluentIcon as FIF
 
 from MyWidget import *
-from SysjSignal import OutputSignal, InputSignalManager, OutputSignalManager
+from SysjSignal import OutputSignal, InputSignalManager, OutputSignalManager, SignalBase
 
 
 def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal], list[InputSignal]]:
@@ -35,8 +36,19 @@ class Window(FluentWindow):
     def __init__(self):
         super().__init__()
 
+        self.outputSignalMngr = OutputSignalManager()
+        self.inputSignalMngr = InputSignalManager()
+        self.inputSignalMngr.recvSignal.connect(self.updateStatusLight)
+        self.globalStatusLights = []
+
         # create sub interface
-        self.posInterface = Widget('POS', self)
+        self.posInterface = PosWidget(self)
+        posSignal = OutputSignal("POS", "POS", 50000, oneShot=True)
+        self.posInputSignal = InputSignal("POS", "POS", 51000)
+        self.outputSignalMngr.addSignal(posSignal)
+        self.inputSignalMngr.addSignal(self.posInputSignal)
+        self.posInterface.setOutputSignal(posSignal)
+
         self.overallInterface = Widget('Overall', self)
         self.baxterInterface = Widget('Baxter', self)
         self.fillersInterface = Widget('Fillers', self)
@@ -47,11 +59,6 @@ class Window(FluentWindow):
         self.lipLoaderInterface = Widget('Lip Loader', self)
         self.capperInterface = Widget('Capper', self)
         self.rotaryAndConveyorInterface = Widget('Rotary and Conveyor', self)
-
-        self.outputSignalMngr = OutputSignalManager()
-        self.inputSignalMngr = InputSignalManager()
-        self.inputSignalMngr.recvSignal.connect(self.updateStatusLight)
-        self.globalStatusLights = []
 
         self.initNavigation()
         self.initWindow()
@@ -191,9 +198,21 @@ class Window(FluentWindow):
 
     @Slot(SignalBase)
     def updateStatusLight(self, sb: SignalBase):
+        if sb.cd == 'POS':
+            updateOrderDtoDict = json.loads(sb.value)
+            updateOrderDto = UpdateOrderDto(updateOrderDtoDict['bottleId'], updateOrderDtoDict['orderId'],
+                                            updateOrderDtoDict['bottleIndex'], updateOrderDtoDict['orderAmount'])
+            self.posInterface.updateOneOrder(updateOrderDto)
+            return
+
         for light in self.globalStatusLights:
             if light.label.text() == sb.name:
                 light.setStatus(sb.status)
+                return
+
+
+
+
 
 
 if __name__ == '__main__':

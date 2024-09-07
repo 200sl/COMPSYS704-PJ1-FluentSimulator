@@ -49,15 +49,16 @@ class SignalMessageDto:
 
     def toJson(self) -> str:
         myDict = self.__dict__()
-        return json.dumps(myDict, indent=4)
+        return json.dumps(myDict)
 
 
 class SignalBase:
-    def __init__(self, name, cd, status=False):
+    def __init__(self, name, cd, status=False, value=None):
         self.name = name
         self.cd = cd
         self.status = status
-        self.signalDto = SignalMessageDto(name, cd, self.status)
+        self.value = value
+        self.signalDto = SignalMessageDto(name, cd, self.status, value)
 
     def __eq__(self, other):
         if isinstance(other, SignalBase):
@@ -92,6 +93,9 @@ class OutputSignal(SignalBase):
 
     def sendSignal(self):
         if self.isSocketAvailable():
+            if self.isOneShot and self.status is False:
+                return
+
             self.socket.send(self.signalDto.toJson().encode())
 
             if self.isOneShot:
@@ -214,6 +218,10 @@ class InputSignalManager(QThread):
                 try:
                     jsDict = json.loads(oneStr)
                     sig = SignalBase(jsDict["name"], jsDict["cd"], jsDict["status"])
+
+                    if jsDict.get("value") is not None:
+                        sig.value = jsDict["value"]
+
                     inputSigMngr.recvSignal.emit(sig)
 
                 except json.JSONDecodeError:
