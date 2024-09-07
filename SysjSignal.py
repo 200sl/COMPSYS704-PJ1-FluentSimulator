@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import selectors
 import socket
@@ -219,7 +220,7 @@ class InputSignalManager(QThread):
 
             dataStr = data.decode()
 
-            for oneStr in dataStr.split("\r\n"):
+            for oneStr in dataStr.split(os.linesep):
                 try:
                     jsDict = json.loads(oneStr)
                     sig = SignalBase(jsDict["name"], jsDict["cd"], jsDict["status"])
