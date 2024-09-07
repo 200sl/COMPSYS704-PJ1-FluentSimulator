@@ -13,4 +13,4 @@ class MyFluentIcon(FluentIconBase, Enum):
 
     def path(self, theme=Theme.AUTO):
         # getIconColor() 根据主题返回字符串 "white" 或者 "black"
-        return  f'./res/icons/{self.value[0]}.svg'
+        return f'./res/icons/{self.value[0]}.svg'

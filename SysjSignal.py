@@ -71,12 +71,14 @@ class SignalBase:
 
 class OutputSignal(SignalBase):
 
-    def __init__(self, name, cd, port, ip="127.0.0.1", oneShot=False):
-        super().__init__(name, cd)
+    def __init__(self, name, cd, port, ip="127.0.0.1", oneShot=False, initStatus=False, ignoreSocket=False):
+        super().__init__(name, cd, status=initStatus)
 
         self.socketInfo = SocketBaseInfo(ip, port)
         self.socket = None
         self.isOneShot = oneShot
+
+        self.ignoreSocket = ignoreSocket
 
         self.emitter = MyEmitter()
 
@@ -92,7 +94,7 @@ class OutputSignal(SignalBase):
         return self.socket is not None
 
     def sendSignal(self):
-        if self.isSocketAvailable():
+        if self.isSocketAvailable() and not self.ignoreSocket:
             if self.isOneShot and self.status is False:
                 return
 

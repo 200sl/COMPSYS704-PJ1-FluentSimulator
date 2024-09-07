@@ -31,6 +31,7 @@ class LabelSwitchButton(QWidget):
         if isinstance(self.switchButton, SwitchButton):
             self.outputSignal.emitter.sigStatusChanged.connect(self.switchButton.setChecked)
             self.switchButton.checkedChanged.connect(lambda checked: self.handleSignal(checked))
+            self.switchButton.setChecked(outputSignal.status)
         elif isinstance(self.switchButton, PushButton):
             self.switchButton.clicked.connect(lambda: self.handleSignal(True))
 

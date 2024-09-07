@@ -1,5 +1,7 @@
 import json
 import sys
+import threading
+import time
 
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Slot, Signal
@@ -12,7 +14,7 @@ from MyWidget import *
 from SysjSignal import OutputSignal, InputSignalManager, OutputSignalManager, SignalBase
 
 
-def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal], list[InputSignal]]:
+def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal], list[InputSignal], list]:
     iSig = []
     oSig = []
 
@@ -23,12 +25,37 @@ def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal]
     iSig.append(InputSignal(f"filler{fillerIdx}Idle", "Coordinator", iPort))
 
     oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"dosUnit{fillerIdx}Evac", f"Filler{fillerIdx}ControllerCD", oPort))
+    oSig.append(OutputSignal(f"dosUnit{fillerIdx}Evac", f"Filler{fillerIdx}ControllerCD", oPort, initStatus=True))
     oSig.append(OutputSignal(f"dosUnit{fillerIdx}AtTarget", f"Filler{fillerIdx}ControllerCD", oPort))
     oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}Full", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}ControllerCD", oPort, oneShot=True))
+    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}ControllerCD", oPort,
+                             oneShot=True, ignoreSocket=True))
 
-    return oSig, iSig
+    def fillerSimu(signals):
+        def simuThread():
+            signals[0].changeStatus(True)
+            time.sleep(1)
+            signals[1].changeStatus(False)
+            time.sleep(2)
+            signals[2].changeStatus(True)
+            time.sleep(1)
+            signals[2].changeStatus(False)
+            time.sleep(2)
+            signals[1].changeStatus(True)
+            time.sleep(1)
+            signals[0].changeStatus(False)
+
+        threading.Thread(target=simuThread).start()
+
+    simuEvent = [
+        None,
+        None,
+        None,
+        None,
+        (fillerSimu, oSig)
+    ]
+
+    return oSig, iSig, simuEvent
 
 
 class Window(FluentWindow):
@@ -116,10 +143,10 @@ class Window(FluentWindow):
 
     def initRotaryAndConveyorInterface(self):
         oSigRotary: list[OutputSignal] = [
-            OutputSignal("tableAlignedWithSensor", "RotaryTableControllerCD", 40001),
+            OutputSignal("tableAlignedWithSensor", "RotaryTableControllerCD", 40001, initStatus=True),
             OutputSignal("bottleAtPos5", "RotaryTableControllerCD", 40001),
             OutputSignal("capOnBottleAtPos1", "RotaryTableControllerCD", 40001),
-            OutputSignal("move2NextPos", "RotaryTableControllerCD", 40001, oneShot=True),
+            OutputSignal("move2NextPos", "RotaryTableControllerCD", 40001, oneShot=True, ignoreSocket=True),
         ]
 
         iSigRotary: list[InputSignal] = [
@@ -127,14 +154,19 @@ class Window(FluentWindow):
             InputSignal("rotaryIdle", "Coordinator", 41001),
         ]
 
-        def move2NextSimulator(signal: OutputSignal):
-            signal.changeStatus(False)
+        def rotarySimu(signals: list[OutputSignal]):
+            def simuThread():
+                signals[0].changeStatus(False)
+                time.sleep(1)
+                signals[0].changeStatus(True)
+
+            threading.Thread(target=simuThread).start()
 
         simulatorEvent: list = [
             None,
             None,
             None,
-            (move2NextSimulator, oSigRotary[0])
+            (rotarySimu, oSigRotary)
         ]
 
         rotaryCdCard = self.createCdCardByIOSignal(iSigRotary, oSigRotary, simulatorEvent=simulatorEvent)
@@ -152,31 +184,31 @@ class Window(FluentWindow):
         self.rotaryAndConveyorInterface.addCdCard(conveyorCdCard)
 
     def initFillerABCDInterfaces(self):
-        oSigFillerA, iSigFillerA = createFillerSignal('A', 41002, 40002)
-        oSigFillerB, iSigFillerB = createFillerSignal('B', 41003, 40003)
-        oSigFillerC, iSigFillerC = createFillerSignal('C', 41004, 40004)
-        oSigFillerD, iSigFillerD = createFillerSignal('D', 41005, 40005)
+        oSigFillerA, iSigFillerA, eventA = createFillerSignal('A', 41002, 40002)
+        oSigFillerB, iSigFillerB, eventB = createFillerSignal('B', 41003, 40003)
+        oSigFillerC, iSigFillerC, eventC = createFillerSignal('C', 41004, 40004)
+        oSigFillerD, iSigFillerD, eventD = createFillerSignal('D', 41005, 40005)
 
-        fillerACdCard = self.createCdCardByIOSignal(iSigFillerA, oSigFillerA)
+        fillerACdCard = self.createCdCardByIOSignal(iSigFillerA, oSigFillerA, simulatorEvent=eventA)
         self.fillerAInterface.addCdCard(fillerACdCard)
 
-        fillerBCdCard = self.createCdCardByIOSignal(iSigFillerB, oSigFillerB)
+        fillerBCdCard = self.createCdCardByIOSignal(iSigFillerB, oSigFillerB, simulatorEvent=eventB)
         self.fillerBInterface.addCdCard(fillerBCdCard)
 
-        fillerCCdCard = self.createCdCardByIOSignal(iSigFillerC, oSigFillerC)
+        fillerCCdCard = self.createCdCardByIOSignal(iSigFillerC, oSigFillerC, simulatorEvent=eventC)
         self.fillerCInterface.addCdCard(fillerCCdCard)
 
-        fillerDCdCard = self.createCdCardByIOSignal(iSigFillerD, oSigFillerD)
+        fillerDCdCard = self.createCdCardByIOSignal(iSigFillerD, oSigFillerD, simulatorEvent=eventD)
         self.fillerDInterface.addCdCard(fillerDCdCard)
 
     def initCappeerInterface(self):
         oSigCapper: list[OutputSignal] = [
             OutputSignal("bottleAtPos4", "CapperControllerCD", 40006),
             OutputSignal("gripperZAxisLowered", "CapperControllerCD", 40006),
-            OutputSignal("gripperZAxisLifted", "CapperControllerCD", 40006),
-            OutputSignal("gripperTurnHomePos", "CapperControllerCD", 40006),
+            OutputSignal("gripperZAxisLifted", "CapperControllerCD", 40006, initStatus=True),
+            OutputSignal("gripperTurnHomePos", "CapperControllerCD", 40006, initStatus=True),
             OutputSignal("gripperTurnFinalPos", "CapperControllerCD", 40006),
-            OutputSignal("capperDoProcess", "CapperControllerCD", 40006, oneShot=True),
+            OutputSignal("capperDoProcess", "CapperControllerCD", 40006, oneShot=True, ignoreSocket=True),
         ]
 
         iSigCapper: list[InputSignal] = [
@@ -188,7 +220,37 @@ class Window(FluentWindow):
             InputSignal("capperIdle", "Coordinator", 41006),
         ]
 
-        capperCdCard = self.createCdCardByIOSignal(iSigCapper, oSigCapper)
+        def capperSimu(signals: list[OutputSignal]):
+            def simuThread():
+                signals[0].changeStatus(True)
+                time.sleep(1)
+                signals[2].changeStatus(False)
+                time.sleep(1)
+                signals[1].changeStatus(True)
+                time.sleep(0.5)
+                signals[3].changeStatus(False)
+                time.sleep(1)
+                signals[4].changeStatus(True)
+                time.sleep(0.5)
+                signals[4].changeStatus(False)
+                time.sleep(0.5)
+                signals[3].changeStatus(True)
+                signals[1].changeStatus(False)
+                time.sleep(1)
+                signals[2].changeStatus(True)
+
+            threading.Thread(target=simuThread).start()
+
+        simulatorEvent: list = [
+            None,
+            None,
+            None,
+            None,
+            None,
+            (capperSimu, oSigCapper)
+        ]
+
+        capperCdCard = self.createCdCardByIOSignal(iSigCapper, oSigCapper, simulatorEvent=simulatorEvent)
         self.capperInterface.addCdCard(capperCdCard)
 
     def initInterfaces(self):
