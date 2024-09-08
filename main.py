@@ -4,14 +4,32 @@ import threading
 import time
 
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Slot, Signal
-from PySide6.QtWidgets import QApplication
-from qfluentwidgets import FluentWindow, NavigationItemPosition
+from PySide6.QtCore import Slot, Signal, QThread
+from PySide6.QtWidgets import QApplication, QLabel
+from qfluentwidgets import FluentWindow, NavigationItemPosition, ProgressBar
 
 from qfluentwidgets import FluentIcon as FIF
 
 from MyWidget import *
 from SysjSignal import OutputSignal, InputSignalManager, OutputSignalManager, SignalBase
+
+
+class BottlePosCheckThread(QThread):
+    bottlePosChanged = Signal(int)
+
+    def __init__(self, bottlePosList: list[OutputSignal]):
+        super().__init__()
+        self.bottlePosList = bottlePosList
+
+    def run(self):
+        while True:
+            for i, bottlePos in enumerate(self.bottlePosList):
+                if bottlePos.status:
+                    self.bottlePosChanged.emit(i)
+                    break
+            else:
+                self.bottlePosChanged.emit(-1)
+            time.sleep(0.5)
 
 
 def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal], list[InputSignal], list]:
@@ -69,6 +87,7 @@ class Window(FluentWindow):
         self.globalStatusLights = []
 
         self.inputSigCallbackMap: dict[str, tuple] = {}
+        self.allOutputSignal: dict[str, list[OutputSignal]] = {}
 
         # create sub interface
         self.posInterface = PosWidget(self)
@@ -78,7 +97,6 @@ class Window(FluentWindow):
         self.inputSignalMngr.addSignal(self.posInputSignal)
         self.posInterface.setOutputSignal(posSignal)
 
-        self.overallInterface = Widget('Overall', self)
         self.baxterInterface = Widget('Baxter', self)
         self.fillersInterface = Widget('Fillers', self)
         self.fillerAInterface = Widget('Filler-A', self)
@@ -89,6 +107,27 @@ class Window(FluentWindow):
         self.capperInterface = Widget('Capper', self)
         self.rotaryAndConveyorInterface = Widget('Rotary and Conveyor', self)
 
+        self.rotaryAndConveyorOverallLayout = QVBoxLayout()
+        self.overallSimulatorButton = PushButton()
+        self.overallSimulatorButton.setText('Simulate All')
+        self.overallSimulatorButton.clicked.connect(lambda: threading.Thread(target=self.simulatorAll).start())
+        self.rotaryAndConveyorOverallLayout.addWidget(self.overallSimulatorButton)
+
+        self.bottlePosHBoxLayout = QHBoxLayout()
+        self.bottlePosBar = ProgressBar()
+        self.bottlePosBar.setRange(0, 7)
+        self.bottlePosBar.setValue(0)
+        self.bottlePosHBoxLayout.addWidget(self.bottlePosBar)
+        self.bottlePosLabel = QLabel()
+        self.bottlePosLabel.setText('Bottle Position: N/A')
+        self.bottlePosHBoxLayout.addWidget(self.bottlePosLabel)
+        self.bottlePosList = []
+
+        self.rotaryAndConveyorOverallLayout.addLayout(self.bottlePosHBoxLayout)
+
+        self.rotaryAndConveyorInterface.vBoxLayout.addLayout(self.rotaryAndConveyorOverallLayout)
+        self.rotaryAndConveyorInterface.vBoxLayout.addSpacing(30)
+
         self.initNavigation()
         self.initWindow()
         self.initInterfaces()
@@ -96,13 +135,33 @@ class Window(FluentWindow):
         self.outputSignalMngr.start()
         self.inputSignalMngr.start()
 
+        self.bottlePosList.append(self.allOutputSignal['conveyor'][0])
+        self.bottlePosList.append(self.allOutputSignal['fillerA'][0])
+        self.bottlePosList.append(self.allOutputSignal['fillerB'][0])
+        self.bottlePosList.append(self.allOutputSignal['fillerC'][0])
+        self.bottlePosList.append(self.allOutputSignal['fillerD'][0])
+        self.bottlePosList.append(self.allOutputSignal['capper'][0])
+        self.bottlePosList.append(self.allOutputSignal['conveyor'][1])
+
+        self.bottlePosCheckThread = BottlePosCheckThread(self.bottlePosList)
+        self.bottlePosCheckThread.bottlePosChanged.connect(self.updateBottlePos)
+        self.bottlePosCheckThread.start()
+
+    def updateBottlePos(self, bottlePos: int):
+        POS_STR = ['POS1', 'POS2A', 'POS2B', 'POS2C', 'POS2D', 'POS4', 'POS Left 5']
+
+        if bottlePos == -1:
+            if self.bottlePosBar.getVal() == 7:
+                self.bottlePosLabel.setText('Bottle Position: N/A')
+                self.bottlePosBar.setValue(0)
+        else:
+            self.bottlePosLabel.setText(f'Bottle Position: {POS_STR[bottlePos]}')
+            self.bottlePosBar.setValue(bottlePos + 1)
+
     def initNavigation(self):
         self.navigationInterface.addSeparator()
-        self.addSubInterface(self.overallInterface, FIF.VIEW, 'Overall')
-        self.addSubInterface(self.posInterface, FIF.PIN, "POS")
-        self.navigationInterface.addSeparator()
-
         self.addSubInterface(self.rotaryAndConveyorInterface, FIF.ROTATE, 'Rotary and Conveyor')
+        self.addSubInterface(self.posInterface, FIF.PIN, "POS")
         self.navigationInterface.addSeparator()
 
         self.addSubInterface(self.baxterInterface, FIF.ROBOT, 'Baxter', NavigationItemPosition.SCROLL)
@@ -165,6 +224,7 @@ class Window(FluentWindow):
             threading.Thread(target=simuThread).start()
 
         self.inputSigCallbackMap['rotaryTableTrigger'] = (rotaryTriggerCallback, oSigRotary)
+        self.allOutputSignal['rotaryTable'] = oSigRotary
 
         def rotarySimu(signals: list[OutputSignal]):
             def simuThread():
@@ -192,6 +252,8 @@ class Window(FluentWindow):
             InputSignal("motConveyorOnOff", "ConveyorModel", 41000),
         ]
 
+        self.allOutputSignal['conveyor'] = oSigConveyor
+
         conveyorCdCard = self.createCdCardByIOSignal(iSigConveyor, oSigConveyor)
         self.rotaryAndConveyorInterface.addCdCard(conveyorCdCard)
 
@@ -200,6 +262,11 @@ class Window(FluentWindow):
         oSigFillerB, iSigFillerB, eventB = createFillerSignal('B', 41003, 40003)
         oSigFillerC, iSigFillerC, eventC = createFillerSignal('C', 41004, 40004)
         oSigFillerD, iSigFillerD, eventD = createFillerSignal('D', 41005, 40005)
+
+        self.allOutputSignal['fillerA'] = oSigFillerA
+        self.allOutputSignal['fillerB'] = oSigFillerB
+        self.allOutputSignal['fillerC'] = oSigFillerC
+        self.allOutputSignal['fillerD'] = oSigFillerD
 
         fillerACdCard = self.createCdCardByIOSignal(iSigFillerA, oSigFillerA, simulatorEvent=eventA)
         self.fillerAInterface.addCdCard(fillerACdCard)
@@ -232,6 +299,8 @@ class Window(FluentWindow):
             InputSignal("capperIdle", "Coordinator", 41006),
         ]
 
+        self.allOutputSignal['capper'] = oSigCapper
+
         def capperSimu(signals: list[OutputSignal]):
             def simuThread():
                 signals[0].changeStatus(True)
@@ -250,6 +319,7 @@ class Window(FluentWindow):
                 signals[1].changeStatus(False)
                 time.sleep(1)
                 signals[2].changeStatus(True)
+                signals[0].changeStatus(False)
 
             threading.Thread(target=simuThread).start()
 
@@ -288,6 +358,69 @@ class Window(FluentWindow):
             if light.label.text() == sb.name:
                 light.setStatus(sb.status)
                 return
+
+    def simulatorAll(self):
+        def fillerSimu(sigList: list[OutputSignal]):
+            sigList[0].changeStatus(True)
+            time.sleep(1)
+            sigList[1].changeStatus(False)
+            time.sleep(2)
+            sigList[2].changeStatus(True)
+            time.sleep(1)
+            sigList[2].changeStatus(False)
+            time.sleep(2)
+            sigList[1].changeStatus(True)
+            time.sleep(1)
+            sigList[0].changeStatus(False)
+
+        def capperSimu(sigList: list[OutputSignal]):
+            sigList[0].changeStatus(True)
+            time.sleep(1)
+            sigList[2].changeStatus(False)
+            time.sleep(1)
+            sigList[1].changeStatus(True)
+            time.sleep(0.5)
+            sigList[3].changeStatus(False)
+            time.sleep(1)
+            sigList[4].changeStatus(True)
+            time.sleep(0.5)
+            sigList[4].changeStatus(False)
+            time.sleep(0.5)
+            sigList[3].changeStatus(True)
+            sigList[1].changeStatus(False)
+            time.sleep(1)
+            sigList[2].changeStatus(True)
+            sigList[0].changeStatus(False)
+
+        def rotarySimu(sigList: list[OutputSignal]):
+            sigList[0].changeStatus(False)
+            time.sleep(1)
+            sigList[0].changeStatus(True)
+
+        # bottle At Pos1
+        self.allOutputSignal['conveyor'][0].changeStatus(False)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        time.sleep(0.5)
+        fillerSimu(self.allOutputSignal['fillerA'])
+        time.sleep(0.5)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        time.sleep(0.5)
+        fillerSimu(self.allOutputSignal['fillerB'])
+        time.sleep(0.5)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        time.sleep(0.5)
+        fillerSimu(self.allOutputSignal['fillerC'])
+        time.sleep(0.5)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        time.sleep(0.5)
+        fillerSimu(self.allOutputSignal['fillerD'])
+        time.sleep(0.5)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        time.sleep(0.5)
+        capperSimu(self.allOutputSignal['capper'])
+        time.sleep(0.5)
+        rotarySimu(self.allOutputSignal['rotaryTable'])
+        self.allOutputSignal['conveyor'][1].changeStatus(True)
 
 
 if __name__ == '__main__':
