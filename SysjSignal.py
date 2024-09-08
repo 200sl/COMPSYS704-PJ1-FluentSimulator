@@ -242,6 +242,7 @@ class InputSignalManager(QThread):
 
     def run(self) -> None:
         while True:
+            print("Handle input signal")
             time.sleep(0.25)
             if not self.registeredSignal.empty():
                 signal = self.registeredSignal.get()
