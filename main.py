@@ -273,8 +273,9 @@ class Window(FluentWindow):
     @Slot(SignalBase)
     def updateStatusLight(self, sb: SignalBase):
         if sb.name in self.inputSigCallbackMap:
-            callback, signals = self.inputSigCallbackMap[sb.name]
-            callback(signals)
+            if sb.status:
+                callback, signals = self.inputSigCallbackMap[sb.name]
+                callback(signals)
 
         if sb.cd == 'POS':
             updateOrderDtoDict = json.loads(sb.value)
