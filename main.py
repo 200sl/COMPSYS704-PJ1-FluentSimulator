@@ -42,11 +42,11 @@ def createFillerSignal(fillerIdx: str, iPort, oPort) -> tuple[list[OutputSignal]
     iSig.append(InputSignal(f"dosUnit{fillerIdx}ValveExtend", "FillerModel", iPort))
     iSig.append(InputSignal(f"filler{fillerIdx}Idle", "Coordinator", iPort))
 
-    oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"dosUnit{fillerIdx}Evac", f"Filler{fillerIdx}ControllerCD", oPort, initStatus=True))
-    oSig.append(OutputSignal(f"dosUnit{fillerIdx}AtTarget", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}Full", f"Filler{fillerIdx}ControllerCD", oPort))
-    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}ControllerCD", oPort,
+    oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}", f"Filler{fillerIdx}CD", oPort))
+    oSig.append(OutputSignal(f"dosUnit{fillerIdx}Evac", f"Filler{fillerIdx}CD", oPort, initStatus=True))
+    oSig.append(OutputSignal(f"dosUnit{fillerIdx}AtTarget", f"Filler{fillerIdx}CD", oPort))
+    oSig.append(OutputSignal(f"bottleAtPos2{fillerIdx}Full", f"Filler{fillerIdx}CD", oPort))
+    oSig.append(OutputSignal(f"filler{fillerIdx}DoProcess", f"Filler{fillerIdx}CD", oPort,
                              oneShot=True, ignoreSocket=True))
 
     def fillerSimu(signals):
@@ -91,8 +91,8 @@ class Window(FluentWindow):
 
         # create sub interface
         self.posInterface = PosWidget(self)
-        posSignal = OutputSignal("POS", "POS", 50000, oneShot=True)
-        self.posInputSignal = InputSignal("POS", "POS", 51000)
+        posSignal = OutputSignal("input_signal_from_cloud", "CoordinatorCD", 10100, oneShot=True)
+        self.posInputSignal = InputSignal("output_signal_to_cloud", "CoordinatorCD", 10101)
         self.outputSignalMngr.addSignal(posSignal)
         self.inputSignalMngr.addSignal(self.posInputSignal)
         self.posInterface.setOutputSignal(posSignal)
@@ -204,15 +204,15 @@ class Window(FluentWindow):
 
     def initRotaryAndConveyorInterface(self):
         oSigRotary: list[OutputSignal] = [
-            OutputSignal("tableAlignedWithSensor", "RotaryTableControllerCD", 40001, initStatus=True),
-            OutputSignal("bottleAtPos5", "RotaryTableControllerCD", 40001),
-            OutputSignal("capOnBottleAtPos1", "RotaryTableControllerCD", 40001),
-            OutputSignal("move2NextPos", "RotaryTableControllerCD", 40001, oneShot=True, ignoreSocket=True),
+            OutputSignal("tableAlignedWithSensor", "ControllerRotaterCD", 40001, initStatus=True),
+            OutputSignal("bottleAtPos5", "ControllerRotaterCD", 40001),
+            OutputSignal("capOnBottleAtPos1", "ControllerRotaterCD", 40001),
+            OutputSignal("move2NextPos", "ControllerRotaterCD", 40001, oneShot=True, ignoreSocket=True),
         ]
 
         iSigRotary: list[InputSignal] = [
-            InputSignal("rotaryTableTrigger", "RotaryTableModel", 41001),
-            InputSignal("rotaryIdle", "Coordinator", 41001),
+            InputSignal("rotaryTableTrigger", "ControllerRotaterCD", 41001),
+            InputSignal("rotaryIdle", "CoordinatorCD", 41001),
         ]
 
         def rotaryTriggerCallback(signals: list[OutputSignal]):
@@ -245,11 +245,11 @@ class Window(FluentWindow):
         self.rotaryAndConveyorInterface.addCdCard(rotaryCdCard)
 
         oSigConveyor: list[OutputSignal] = [
-            OutputSignal("bottleAtPos1", "ConveyorControllerCD", 40000),
-            OutputSignal("bottleLeftPos5", "ConveyorControllerCD", 40000),
+            OutputSignal("bottleAtPos1", "ControllerConveyerCD", 40000),
+            OutputSignal("bottleLeftPos5", "ControllerConveyerCD", 40000),
         ]
         iSigConveyor: list[InputSignal] = [
-            InputSignal("motConveyorOnOff", "ConveyorModel", 41000),
+            InputSignal("motConveyorOnOff", "ControllerConveyerCD", 41000),
         ]
 
         self.allOutputSignal['conveyor'] = oSigConveyor
@@ -282,21 +282,21 @@ class Window(FluentWindow):
 
     def initCappeerInterface(self):
         oSigCapper: list[OutputSignal] = [
-            OutputSignal("bottleAtPos4", "CapperControllerCD", 40006),
-            OutputSignal("gripperZAxisLowered", "CapperControllerCD", 40006),
-            OutputSignal("gripperZAxisLifted", "CapperControllerCD", 40006, initStatus=True),
-            OutputSignal("gripperTurnHomePos", "CapperControllerCD", 40006, initStatus=True),
-            OutputSignal("gripperTurnFinalPos", "CapperControllerCD", 40006),
-            OutputSignal("capperDoProcess", "CapperControllerCD", 40006, oneShot=True, ignoreSocket=True),
+            OutputSignal("bottleAtPos4", "ControllerCapperCD", 40006),
+            OutputSignal("gripperZAxisLowered", "ControllerCapperCD", 40006),
+            OutputSignal("gripperZAxisLifted", "ControllerCapperCD", 40006, initStatus=True),
+            OutputSignal("gripperTurnHomePos", "ControllerCapperCD", 40006, initStatus=True),
+            OutputSignal("gripperTurnFinalPos", "ControllerCapperCD", 40006),
+            OutputSignal("capperDoProcess", "ControllerCapperCD", 40006, oneShot=True, ignoreSocket=True),
         ]
 
         iSigCapper: list[InputSignal] = [
-            InputSignal("cylPos5ZaxisExtend", "CapperModel", 41006),
-            InputSignal("gripperTurnRetract", "CapperModel", 41006),
-            InputSignal("gripperTurnExtend", "CapperModel", 41006),
-            InputSignal("capGripperPos5Extend", "CapperModel", 41006),
-            InputSignal("cylClampBottleExtend", "CapperModel", 41006),
-            InputSignal("capperIdle", "Coordinator", 41006),
+            InputSignal("cylPos5ZaxisExtend", "ControllerCapperCD", 41006),
+            InputSignal("gripperTurnRetract", "ControllerCapperCD", 41006),
+            InputSignal("gripperTurnExtend", "ControllerCapperCD", 41006),
+            InputSignal("capGripperPos5Extend", "ControllerCapperCD", 41006),
+            InputSignal("cylClampBottleExtend", "ControllerCapperCD", 41006),
+            InputSignal("capperIdle", "CoordinatorCD", 41006),
         ]
 
         self.allOutputSignal['capper'] = oSigCapper
@@ -347,9 +347,11 @@ class Window(FluentWindow):
                 callback, signals = self.inputSigCallbackMap[sb.name]
                 callback(signals)
 
-        if sb.cd == 'POS':
+        if sb.cd == 'CoordinatorCD':
+            if sb.value is None:
+                return
             updateOrderDtoDict = json.loads(sb.value)
-            updateOrderDto = UpdateOrderDto(updateOrderDtoDict['bottleId'], updateOrderDtoDict['orderId'],
+            updateOrderDto = UpdateOrderDto(updateOrderDtoDict['bottleID'], updateOrderDtoDict['orderID'],
                                             updateOrderDtoDict['bottleIndex'], updateOrderDtoDict['orderAmount'])
             self.posInterface.updateOneOrder(updateOrderDto)
             return
