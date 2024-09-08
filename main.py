@@ -68,6 +68,8 @@ class Window(FluentWindow):
         self.inputSignalMngr.recvSignal.connect(self.updateStatusLight)
         self.globalStatusLights = []
 
+        self.inputSigCallbackMap: dict[str, tuple] = {}
+
         # create sub interface
         self.posInterface = PosWidget(self)
         posSignal = OutputSignal("POS", "POS", 50000, oneShot=True)
@@ -153,6 +155,16 @@ class Window(FluentWindow):
             InputSignal("rotaryTableTrigger", "RotaryTableModel", 41001),
             InputSignal("rotaryIdle", "Coordinator", 41001),
         ]
+
+        def rotaryTriggerCallback(signals: list[OutputSignal]):
+            def simuThread():
+                signals[0].changeStatus(False)
+                time.sleep(1)
+                signals[0].changeStatus(True)
+
+            threading.Thread(target=simuThread).start()
+
+        self.inputSigCallbackMap['rotaryTableTrigger'] = (rotaryTriggerCallback, oSigRotary)
 
         def rotarySimu(signals: list[OutputSignal]):
             def simuThread():
@@ -260,6 +272,10 @@ class Window(FluentWindow):
 
     @Slot(SignalBase)
     def updateStatusLight(self, sb: SignalBase):
+        if sb.name in self.inputSigCallbackMap:
+            callback, signals = self.inputSigCallbackMap[sb.name]
+            callback(signals)
+
         if sb.cd == 'POS':
             updateOrderDtoDict = json.loads(sb.value)
             updateOrderDto = UpdateOrderDto(updateOrderDtoDict['bottleId'], updateOrderDtoDict['orderId'],
