@@ -365,6 +365,16 @@ class PosWidget(QFrame):
         self.orderDao.updateOrder(order)
         self.orderCard.updateOrder(order)
 
+    def updateFirstOrder(self):
+        order = self.orderDao.getOrderById(1)
+        order.producedAmount += 1
+
+        if order.producedAmount == order.count:
+            order.orderStatus = OrderStatus.COMPLETED.value
+
+        self.orderDao.updateOrder(order)
+        self.orderCard.updateOrder(order)
+
     def saveOrder(self, order: Order):
         self.orderDao.addOrder(order)
 

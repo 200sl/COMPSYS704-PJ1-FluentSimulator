@@ -440,6 +440,7 @@ class Window(FluentWindow):
         time.sleep(0.5)
         rotarySimu(self.allOutputSignal['rotaryTable'])
         self.allOutputSignal['conveyor'][1].changeStatus(True)
+        self.posInterface.updateFirstOrder()
 
 
 if __name__ == '__main__':
