@@ -88,6 +88,11 @@ class OutputSignal(SignalBase):
         self.signalDto.status = status
         self.emitter.sigStatusChanged.emit(status)
 
+    def switchStatus(self):
+        self.status = not self.status
+        self.signalDto.status = self.status
+        self.emitter.sigStatusChanged.emit(self.status)
+
     def setSocket(self, so):
         self.socket = so
 
