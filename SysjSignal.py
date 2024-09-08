@@ -192,7 +192,10 @@ class OutputSignalManager(QThread):
                     print(f"Error: {e}")
                     signal.socket.close()
                     socketInfoMap.pop(signal.socketInfo)
-                    signal.setSocket(None)
+
+                    for sig in outputSignalSet:
+                        if sig.socketInfo == signal.socketInfo:
+                            sig.setSocket(None)
 
 
 class InputSignalManager(QThread):
@@ -259,3 +262,12 @@ class InputSignalManager(QThread):
                 for key, mask in self.sel.select(timeout=1):
                     callback = key.data
                     callback(self, key.fileobj)
+
+
+if __name__ == '__main__':
+    sk1 = SocketBaseInfo("localhost", 12345)
+    sk2 = SocketBaseInfo("localhost", 12345)
+
+    sMap = {sk1: 'sk1'}
+
+    sMap.pop(sk2)
